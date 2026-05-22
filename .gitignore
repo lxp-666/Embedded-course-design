@@ -1,0 +1,21 @@
+# Build outputs
+keil/Objects/
+keil/build/
+keil/bin/
+keil/obj/
+keil/out/
+
+# Linker map files
+*.map
+
+# IDE config (user-specific)
+*.uvguix.*
+*.uvguix.*
+
+# CMSIS packs
+keil/.cmsis/
+keil/.eide/log
+keil/.eide.usr.ctx.json
+
+# Claude AI config
+keil/.claude/
