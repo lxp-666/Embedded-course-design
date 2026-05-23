@@ -340,7 +340,7 @@
               <MiscControls></MiscControls>
               <Define>__MSPM0G3507__</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\source\third_party\CMSIS\Core\Include;..\..\source;..\..\project1;..\..\project1\keil;..\..\grayscale</IncludePath>
+              <IncludePath>..\..\source\third_party\CMSIS\Core\Include;..\..\source;..\..\project1;..\keil;..\..\grayscale</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -528,6 +528,16 @@
               <FileName>Kalman.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\Kalman.h</FilePath>
+            </File>
+            <File>
+              <FileName>buzzer.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\buzzer.c</FilePath>
+            </File>
+            <File>
+              <FileName>buzzer.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\buzzer.h</FilePath>
             </File>
           </Files>
         </Group>

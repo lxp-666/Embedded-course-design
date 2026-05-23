@@ -173,6 +173,12 @@ extern "C" {
 /* Defines for PIN_22: GPIOB.22 with pinCMx 50 on package pin 21 */
 #define GPIO_LED1_PIN_22_PIN                                    (DL_GPIO_PIN_22)
 #define GPIO_LED1_PIN_22_IOMUX                                   (IOMUX_PINCM50)
+/* Port definition for Pin Group BUZZER */
+#define BUZZER_PORT                                                      (GPIOB)
+
+/* Defines for PIN_13: GPIOB.13 with pinCMx 30 on package pin 1 */
+#define BUZZER_PIN_13_PIN                                       (DL_GPIO_PIN_13)
+#define BUZZER_PIN_13_IOMUX                                      (IOMUX_PINCM30)
 /* Port definition for Pin Group GPIO_LCD */
 #define GPIO_LCD_PORT                                                    (GPIOB)
 

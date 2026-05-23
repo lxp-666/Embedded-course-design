@@ -14,6 +14,7 @@
 #include "gyro.h"
 #include "math.h"
 #include "Kalman.h" 
+#include "buzzer.h"
 
 
 ///////////////函数声明////////////////////////////////////////
@@ -121,16 +122,17 @@ int main(void)
 	timer_init();	//定时器初始化
 	jy61pInit();	//陀螺仪初始化
 	lcd_init();		//LCD初始化
-	calibrate_gyro(); // 增加校准
+	calibrate_gyro(); // 增加校准       
+
+//	AO_Control(1,DEFAULT_DUTY_R);
+//	BO_Control(1,DEFAULT_DUTY_L);
 	
-	AO_Control(1,DEFAULT_DUTY_R);
-	BO_Control(1,DEFAULT_DUTY_L);
-	
+
 	begin_flag=1;
+	buzzer_beep(300);
 	while (1) 
 	{
-		
-		mode=1;
+		mode=2;
 		if(mode==1)
 		{
 			if(begin_flag==1)
@@ -139,14 +141,14 @@ int main(void)
 			}
 		
 		}
-//		else if(mode==2)
-//		{
-//			if(begin_flag==1)
-//			{
-//				tast2();
-//			}
-//		
-//		}
+		else if(mode==2)
+		{
+			if(begin_flag==1)
+			{
+				tast2();
+			}
+		
+		}
 //		else if(mode==3)
 //		{
 //			if(begin_flag==1)
@@ -277,44 +279,134 @@ void tast1()   // 直走: 黑线循迹 → 白区陀螺直行 → 黑线循迹 → 停车
           break;
       }
   }
-void tast2()//绕一圈
+void tast2()   // test1 直线 + 右转90度
 {
-	unsigned char flag=0;//状态,导航--0，循迹--1
-	unsigned char flag_last=0;//状态,导航--0，循迹--1
+    static uint8_t phase = 0;           // 0=第一段黑线, 1=白区直行, 2=第二段黑线, 3=准备右转, 4=右转中, 5=停止
+    static uint8_t debounce = 0;
+    static float lock_heading = 0;      // 锁定航向
+    static float target_heading = 0;    // 转弯目标航向
+    static uint8_t init_done = 0;
 
-	if (huidu[0]!=1 || huidu[1]!=1 || huidu[2]!=1 || huidu[3]!=1 || huidu[4]!=1 || huidu[5]!=1 || huidu[6]!=1 || huidu[7]!=1 )  flag=1;  //判断循迹还是到导航
-	else  flag=0;
-	
-	if(flag!=flag_last) count++;
-	
-	if(count == 4)                                //count为模式切换计数值，用于判断是否跑完全程
-    {
-        TB6612_Motor_Stop();
-		begin_flag=0;
-		count=0;
+    if (!init_done) {
+        phase = 0;
+        debounce = 0;
+        init_done = 1;
     }
-	
-	if(flag==0)
-	{	
-		flag_last=0;
-		if(bias>165||bias<-165)			
-		{
-			if(bias>165)				PID_angle(0,fabs(bias)-180,Kp_A,Ki_A,Kd_A);
-			if(bias<-165)				PID_angle(0,180-fabs(bias),Kp_A,Ki_A,Kd_A);
-		}	
-		if(bias>-15&&bias<15) 			PID_angle(0,bias,Kp_A,Ki_A,Kd_A);
-		delay_ms(10);
-	}
-	
-	else if(flag==1)
-	{
-		flag_last=1;
-		PID_position(0,Error_huidu,Kp_P-1.1,Ki_P,Kd_P);//设定左右电机的目标速度
-		PID_Speed_Change_L(Taget_speed_L,(-L_speed_actual)*125,Kp_L,Ki_L,Kd_L);//控制左电机速度
-		PID_Speed_Change_R(Taget_speed_R,R_speed_actual*125,Kp_R,Ki_R,Kd_R);//控制右电机速度
-		delay_ms(10);
-	}
+
+    float bias = JY61P_Data->z - gyro_offset;
+
+    uint8_t all_white = (huidu[0]==1 && huidu[1]==1 && huidu[2]==1 && huidu[3]==1
+                      && huidu[4]==1 && huidu[5]==1 && huidu[6]==1 && huidu[7]==1);
+
+    switch (phase) {
+
+    case 0:   // 第一段黑线：循线
+        PID_position(0, Error_huidu, Kp_P, Ki_P, Kd_P);
+        if (all_white) {
+            debounce++;
+            if (debounce >= 15) {
+                debounce = 0;
+                lock_heading = bias;           // 锁航向
+                phase = 1;
+            }
+        } else {
+            debounce = 0;
+        }
+        break;
+
+    case 1:   // 白区：陀螺仪直行
+        PID_angle(lock_heading, bias, Kp_A, Ki_A, Kd_A);
+        if (!all_white) {
+            debounce++;
+            if (debounce >= 15) {
+                debounce = 0;
+                phase = 2;
+            }
+        } else {
+            debounce = 0;
+        }
+        break;
+
+    case 2:   // 第二段黑线：循线
+        PID_position(0, Error_huidu, Kp_P, Ki_P, Kd_P);
+        if (all_white) {
+            debounce++;
+            if (debounce >= 15) {
+                debounce = 0;
+                phase = 3;
+            }
+        } else {
+            debounce = 0;
+        }
+        break;
+
+    case 3:   // 差速右转，直到检测到黑线
+        AO_Control(1, 100);     // 左轮快转
+        BO_Control(1, 1500);     // 右轮反转（差速右转）
+
+        if (!all_white) {        // 检测到黑线
+            debounce++;
+            if (debounce >= 15) {
+                debounce = 0;
+                phase = 4;
+            }
+        } else {
+            debounce = 0;
+        }
+        break;
+
+    case 4:   // 转弯后第三段黑线循迹，直到全白
+        PID_position(0, Error_huidu, Kp_P, Ki_P, Kd_P);
+        if (all_white) {
+            debounce++;
+            if (debounce >= 15) {
+                debounce = 0;
+                phase = 5;
+            }
+        } else {
+            debounce = 0;
+        }
+        break;
+
+	case 5:   // 第二段白区：陀螺仪直行
+        PID_angle(-90, bias, Kp_A, Ki_A, Kd_A);
+        if (!all_white) {
+            debounce++;
+            if (debounce >= 15) {
+                debounce = 0;
+                phase = 6;
+            }
+        } else {
+            debounce = 0;
+        }
+        break;
+	case 6:   // 第四段黑线：循线
+        PID_position(0, Error_huidu, Kp_P, Ki_P, Kd_P);
+        if (all_white) {
+            debounce++;
+            if (debounce >= 15) {
+                debounce = 0;
+                phase = 7;
+            }
+        } else {
+            debounce = 0;
+        }
+        break;
+
+    case 7:   // 停止
+        TB6612_Motor_Stop();
+        begin_flag = 0;
+        mode = 0;
+        phase = 0;
+        init_done = 0;
+        break;
+
+    }
+
+    delay_ms(10);
 }
+
+
 void tast3()//走8字
 {
 	static unsigned char flag;	//状态,导航--0，循迹--1
